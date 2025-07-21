@@ -3,7 +3,7 @@
 import os
 import streamlit as st
 from core.dto import DTOBundle
-from ui.page import inject_global_css_and_header, sidebar_market_brand_form, sidebar_cycle_form
+from ui.ui_utils import inject_global_css_and_header, sidebar_market_brand_form, sidebar_cycle_form
 from ui.channel_capacity_form import ChannelCapacityForm
 from ui.hcp_envelope_form import HCPEnvelopeForm
 from services.business_constraints_service import BusinessConstraintsService
