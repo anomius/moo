@@ -1,0 +1,104 @@
+classDiagram
+    %% Main Application Layer
+    OCCPController --> MarketBrandForm
+    OCCPController --> CycleForm
+    OCCPController --> ChannelCapacityForm
+    OCCPController --> HCPEnvelopeForm
+    OCCPController --> ConstraintBuilder
+    OCCPController --> SnowflakeRepo
+    OCCPController --> ExcelExporter
+    OCCPController --> EmailService
+    OCCPController --> ApiClient
+
+    %% UI Layer
+    MarketBrandForm ..|> PageForm
+    CycleForm ..|> PageForm
+    ChannelCapacityForm ..|> PageForm
+    HCPEnvelopeForm ..|> PageForm
+
+    %% DTOs
+    DTOBundle --> CountryBrandDTO
+    DTOBundle --> CycleDTO
+    DTOBundle --> ReferenceCycleDTO
+    DTOBundle --> BrandDistributionDTO
+    DTOBundle --> ChannelCapacityDTO
+    DTOBundle --> HistoricalEnvelopeDTO
+    DTOBundle --> SegmentEnvelopeDTO
+    DTOBundle --> NonPrescriberEnvelopeDTO
+
+    %% Infrastructure Layer
+    SnowflakeRepo ..|> Repository
+    EmailService ..|> EmailSender
+    ExcelExporter ..|> ExcelExporter
+    ApiClient ..|> PayloadClient
+
+    %% Domain Layer
+    ConstraintBuilder --> ChannelMapper
+    ConstraintBuilder --> MonthPlanner
+    ConstraintBuilder --> BrandCombinator
+    ConstraintBuilder --> CountryCodeMapper
+
+    %% Error Handling
+    OCCPError <|-- ValidationError
+    OCCPError <|-- RepositoryError
+    OCCPError <|-- ExternalServiceError
+    OCCPError <|-- ConfigurationError
+
+    %% Class Definitions
+    class OCCPController {
+        +run()
+        +_initialize_session_state()
+        +_configure_page()
+        +_setup_sidebar()
+        +_validate_required_fields()
+        +_show_review_and_submit()
+    }
+
+    class PageForm {
+        <<abstract>>
+        +render()
+    }
+
+    class MarketBrandForm {
+        +render(df_team, df_brand) CountryBrandDTO
+    }
+
+    class CycleForm {
+        +render() (CycleDTO, ReferenceCycleDTO)
+    }
+
+    class ChannelCapacityForm {
+        +render(brands, mode) (ChannelCapacityDTO, BrandDistributionDTO)
+    }
+
+    class HCPEnvelopeForm {
+        +render(channels, brands, mode, use_segment_matrix) (List[HistoricalEnvelopeDTO], List[SegmentEnvelopeDTO], List[NonPrescriberEnvelopeDTO])
+    }
+
+    class ConstraintBuilder {
+        +build(bundle) Dict
+        +_build_interaction_channels()
+        +_build_constraints()
+        +_transform_hcp_bounds()
+        +_transform_hcp_segments()
+    }
+
+    class SnowflakeRepo {
+        +fetch_team_data()
+        +fetch_channel_data()
+        +fetch_master_and_time_dim_data()
+        +fetch_validate_data()
+        +push_output_tables_to_df()
+    }
+
+    class DTOBundle {
+        +market: CountryBrandDTO
+        +cycle: CycleDTO
+        +reference: ReferenceCycleDTO
+        +distribution: BrandDistributionDTO
+        +capacity: ChannelCapacityDTO
+        +envelopes_hist: List[HistoricalEnvelopeDTO]
+        +envelopes_seg: List[SegmentEnvelopeDTO]
+        +non_prescriber: List[NonPrescriberEnvelopeDTO]
+        +uses_segment_matrix: bool
+    } 
