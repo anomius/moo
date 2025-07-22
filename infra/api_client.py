@@ -7,6 +7,9 @@ from typing import Dict, Any
 from core.base import PayloadClient
 from core.errors import ExternalServiceError
 from core.utils import CountryCodeMapper
+from services.constraint_builder import ConstraintBuilder
+from core.dto import DTOBundle
+import logging
 
 class ApiClient(PayloadClient):
     """Client for OCCP optimization API."""
@@ -61,6 +64,23 @@ class ApiClient(PayloadClient):
             raise ExternalServiceError(f"Network error during API call: {e}")
         except Exception as e:
             raise ExternalServiceError(f"Unexpected error during API call: {e}")
+    
+    def post_bundle(self, bundle: DTOBundle) -> Dict[str, Any]:
+        """
+        Build the OCCP payload from a DTOBundle and post it to the OCCP optimization API.
+        Args:
+            bundle: Complete DTO bundle with all OCCP constraints
+        Returns:
+            API response as dictionary
+        Raises:
+            ExternalServiceError: If API call fails
+        """
+        try:
+            payload = ConstraintBuilder().build(bundle)
+            return self.post(payload)
+        except Exception as e:
+            logging.error(f"Failed to post OCCP bundle: {e}")
+            raise ExternalServiceError(f"Failed to post OCCP bundle: {e}")
     
     def _prepare_api_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """

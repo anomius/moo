@@ -6,7 +6,8 @@ from core.base import PageForm
 from core.dto import (
     HistoricalEnvelopeDTO, SegmentEnvelopeDTO, NonPrescriberEnvelopeDTO, HCPEnvelopeRule
 )
-from ui.page import inject_global_css_and_header
+from ui.ui_utils import inject_global_css_and_header
+from services.ui_data_service import UIDataService
 
 class HCPEnvelopeForm(PageForm):
     """Form for HCP envelope matrix and non-prescriber constraints."""
@@ -20,9 +21,6 @@ class HCPEnvelopeForm(PageForm):
     ) -> Tuple[Optional[List[HistoricalEnvelopeDTO]], 
                Optional[List[SegmentEnvelopeDTO]], 
                Optional[List[NonPrescriberEnvelopeDTO]]]:
-        """
-        Render the envelope matrix and non-prescriber constraints UI.
-        """
         inject_global_css_and_header(logo_path="./utils/turing_logo.PNG")
         st.markdown(
             """
@@ -43,7 +41,6 @@ class HCPEnvelopeForm(PageForm):
         segment_envelopes = []
         non_prescriber_envelopes = []
         if not use_segment_matrix:
-            # Historical interaction level: one table per channel
             for channel in channels:
                 st.markdown(f"<h5>HCP Constraints for {channel}</h5>", unsafe_allow_html=True)
                 df = st.data_editor(
@@ -67,15 +64,15 @@ class HCPEnvelopeForm(PageForm):
                 st.error(str(e))
                 return None, None, None
         else:
-            # Segment level: one table per channel per brand
+            segments = ["A", "B", "C", "D"]
             for brand in brands:
-                st.markdown(f"<h5>HCP Constraints for {brand}</h5>", unsafe_allow_html=True)
+                st.markdown(f"<ul><li><h5>Input the min/max interactions for {brand}</h5></li></ul>", unsafe_allow_html=True)
                 cols = st.columns(len(channels))
                 for idx, channel in enumerate(channels):
                     with cols[idx]:
                         st.markdown(f"<b>{channel}</b>", unsafe_allow_html=True)
                         df = st.data_editor(
-                            [{"Segment": seg, "Min": 0, "Max": 0} for seg in ["A", "B", "C", "D"]],
+                            [{"Segment": seg, "Min": 0, "Max": 0} for seg in segments],
                             num_rows="dynamic",
                             key=f"seg_env_{brand}_{channel}"
                         )

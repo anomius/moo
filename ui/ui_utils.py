@@ -4,6 +4,8 @@ import base64
 from core.dto import CountryBrandDTO, BrandDTO, CycleDTO, ReferenceCycleDTO
 from datetime import date
 from dateutil import relativedelta
+from ui.market_brand_form import MarketBrandForm
+from ui.cycle_form import CycleForm
 
 def inject_global_css_and_header(logo_path=None):
     # Tooltip and custom styles
@@ -89,96 +91,9 @@ def inject_global_css_and_header(logo_path=None):
     )
 
 def sidebar_market_brand_form():
-    countries = ["Italy", "France", "Germany", "Spain"]
-    country_codes = {"Italy": "IT", "France": "FR", "Germany": "DE", "Spain": "ES"}
-    sales_lines = ["IT_Diab_PM", "FR_Onco_PM", "DE_Cardio_PM", "ES_Resp_PM"]
-    all_brands = [
-        BrandDTO(name="BrandA", brand_code="A", brand_id="BRAND1"),
-        BrandDTO(name="BrandB", brand_code="B", brand_id="BRAND2"),
-        BrandDTO(name="BrandC", brand_code="C", brand_id="BRAND3"),
-    ]
-    brand_names = [b.name for b in all_brands]
     with st.sidebar:
-        country = st.selectbox("Select Country", countries)
-        country_code = country_codes[country]
-        sales_line = st.selectbox("Select Sales Line", [s for s in sales_lines if s.startswith(country_code)])
-        mode = st.radio("OCCP Mode", ("Monobrand", "Multibrand"), horizontal=True)
-        if mode == "Monobrand":
-            selected_brand_names = [st.selectbox("Select Brand", brand_names)]
-        else:
-            selected_brand_names = st.multiselect("Select Brands", brand_names)
-        selected_brands = [b for b in all_brands if b.name in selected_brand_names]
-        specialties = None
-        if mode == "Multibrand" and selected_brands:
-            specialties_input = st.text_input("Specialties for selected brands (comma-separated)")
-            if specialties_input:
-                specialties = {" and ".join(selected_brand_names): specialties_input}
-    return CountryBrandDTO(
-        country=country,
-        country_code=country_code,
-        sales_line=sales_line,
-        brands=selected_brands,
-        mode=mode,
-        specialties=specialties,
-    )
+        return MarketBrandForm.render()
 
 def sidebar_cycle_form():
     with st.sidebar:
-        today = date.today()
-        next_year = today.year
-        st.markdown("<h4>Upcoming Cycle</h4>", unsafe_allow_html=True)
-        cycle_start_input = st.text_input(
-            "Start Date (YYYY/MM)", value=f"{next_year}/01",
-            help="Start date for the upcoming OCCP cycle."
-        )
-        try:
-            year, month = map(int, cycle_start_input.split("/"))
-            start_date = date(year, month, 1)
-        except Exception:
-            st.error("Please enter the date in YYYY/MM format.")
-            return None, None
-        cycle_length = st.number_input(
-            "Cycle Length (months)", min_value=1, max_value=12, value=1, step=1, format="%d"
-        )
-        cycle_end = start_date + relativedelta.relativedelta(months=cycle_length, days=-1)
-        if cycle_length > 1:
-            cycle_name = f"C{(start_date.month//cycle_length)+1} {start_date.year}"
-        else:
-            cycle_name = f"C{start_date.month} {start_date.year}"
-        working_days = st.number_input(
-            "Working Days (upcoming cycle)", min_value=1, max_value=31*cycle_length, value=1, step=1, format="%d"
-        )
-        st.markdown("<h4>Reference Cycle</h4>", unsafe_allow_html=True)
-        ref_start_input = st.text_input(
-            "Reference Start Date (YYYY/MM)", value=f"{next_year-1}/01",
-            help="Start date for the reference OCCP cycle."
-        )
-        try:
-            ref_year, ref_month = map(int, ref_start_input.split("/"))
-            ref_start_date = date(ref_year, ref_month, 1)
-        except Exception:
-            st.error("Please enter the reference date in YYYY/MM format.")
-            return None, None
-        ref_length = st.number_input(
-            "Reference Cycle Length (months)", min_value=1, max_value=12, value=1, step=1, format="%d"
-        )
-        ref_end = ref_start_date + relativedelta.relativedelta(months=ref_length, days=-1)
-        ref_working_days = st.number_input(
-            "Working Days (reference cycle)", min_value=1, max_value=31*ref_length, value=1, step=1, format="%d"
-        )
-        if ref_length != cycle_length:
-            st.warning("Reference and upcoming cycle lengths differ.")
-    cycle = CycleDTO(
-        name=cycle_name,
-        start=start_date,
-        end=cycle_end,
-        months=cycle_length,
-        working_days=working_days
-    )
-    reference = ReferenceCycleDTO(
-        start=ref_start_date,
-        end=ref_end,
-        months=ref_length,
-        working_days=ref_working_days
-    )
-    return cycle, reference 
+        return CycleForm.render() 

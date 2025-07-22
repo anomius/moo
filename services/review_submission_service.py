@@ -5,6 +5,13 @@ import pandas as pd
 from typing import Dict, Any, Optional
 from core.dto import DTOBundle
 from core.logging import init_logger
+from infra.email_service import EmailService
+from infra.excel_exporter import ExcelExporterService
+from infra.snowflake_repo import SnowflakeRepo
+from turing_generic_lib.utils.config import TuringConfig
+import os
+import yaml
+from infra.api_client import ApiClient
 
 logger = init_logger()
 
@@ -160,6 +167,65 @@ class ReviewSubmissionService:
                 unsafe_allow_html=True,
             )
     
+    def submit_constraints(self, bundle: DTOBundle, output_table_dict: Dict[str, pd.DataFrame]) -> str:
+        """
+        Orchestrate Excel generation, API call, email sending, and Snowflake push for OCCP constraints.
+        Returns a status message for user feedback.
+        """
+        try:
+            # 1. Generate Excel file
+            excel_exporter = ExcelExporterService()
+            excel_bytes = excel_exporter.build(bundle)
+            filename = f"Business_Constraints_{bundle.market.country}_{'_'.join(bundle.market.brands)}_{bundle.cycle.name}.xlsx"
+
+            # 2. Load email config
+            config_path = os.path.join(os.path.dirname(__file__), '../config/email_config.yaml')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                email_config = yaml.safe_load(f)
+            env = os.environ.get("ENVIRONMENT", "DEV")
+            country_code = bundle.market.country[:2].upper()
+            if env == "PROD":
+                recipients = email_config.get("to", {}).get("emails", []).copy()
+                country_specific = (
+                    email_config.get("to", {}).get("gen", {}).get(country_code, {}).get("emails", [])
+                )
+                recipients.extend([e for e in country_specific if e not in recipients])
+            else:
+                recipients = email_config.get("test", {}).get("emails", []).copy()
+            if self.user_email and self.user_email not in recipients:
+                recipients.append(self.user_email)
+            # 3. Prepare email subject/body
+            email_service = EmailService(
+                smtp_gateway=email_config["SMTP_GATEWAY"][0],
+                smtp_port=int(email_config["SMTP_PORT"][0]),
+                email_from=email_config["from"][0],
+                email_password=os.environ.get("EMAIL_PWD", "")
+            )
+            subject = email_service.format_email_subject(bundle.market.country, bundle.market.brands)
+            body = email_service.format_email_body(
+                bundle.market.country, bundle.market.brands, bundle.market.sales_line, bundle.cycle.name
+            )
+
+            # 4. Call OCCP optimization API
+            api_client = ApiClient.create_for_environment(env)
+            api_response = api_client.post_bundle(bundle)
+            if api_response.get("status") != "success":
+                return f"API submission failed: {api_response.get('data', 'Unknown error')}"
+
+            # 5. Send email
+            email_service.send(subject, body, recipients, excel_bytes, filename)
+            # 6. Push output tables to Snowflake
+            config = TuringConfig(config_dir=None, gbu="gen", countrycode=country_code, brand=bundle.market.brands[0])
+            config.load()
+            snowflake_repo = SnowflakeRepo(config)
+            for table, df in output_table_dict.items():
+                if df is not None and not df.empty:
+                    df.to_sql(table, snowflake_repo.snowflake_con, if_exists='append', index=False)
+            return "Business constraints submitted, API called, emailed, and pushed to Snowflake successfully!"
+        except Exception as ex:
+            logger.error(f"Submission failed: {ex}")
+            return f"Submission failed: {ex}"
+
     def _render_email_section(self, output_table_dict: Dict[str, pd.DataFrame]):
         """Render the email input and submission section."""
         columns = st.columns((1, 0.75, 1))
@@ -178,8 +244,12 @@ class ReviewSubmissionService:
                 return
             if st.button("Submit Business Constraints"):
                 with st.spinner("Submitting..."):
-                    # TODO: Implement submission logic
-                    st.success("Business constraints submitted successfully!")
+                    # Call the new orchestration method
+                    status = self.submit_constraints(self.bundle, output_table_dict)
+                    if status.startswith("Submission failed"):
+                        st.error(status)
+                    else:
+                        st.success(status)
             else:
                 st.warning(
                     "Click on this button to share the Business Constraints with the OCCP team"

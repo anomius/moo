@@ -4,6 +4,8 @@ import pandas as pd
 from typing import Dict, List, Tuple, Any
 from core.dto import DTOBundle, ChannelCapacityDTO
 from core.utils import ChannelMapper
+from utils.utilization_automation import channel_utilization_status
+from utils.output_mapping import create_business_constraints_file
 
 class BusinessConstraintsService:
     """Service for calculating and generating business constraints."""
@@ -261,3 +263,40 @@ class BusinessConstraintsService:
         for channel, value in daily_capacity.items():
             if value < 0:
                 raise ValueError(f"Channel capacity for {channel} must be >= 0.") 
+
+    @staticmethod
+    def get_channel_utilization_status(session, unique_channels):
+        """
+        Calculate channel utilization status using the logic from utils.utilization_automation.
+        Args:
+            session: Streamlit session state or similar object
+            unique_channels: List of channel names
+        Returns:
+            Dict with utilization status per channel
+        """
+        return channel_utilization_status(session, unique_channels)
+
+    @staticmethod
+    def build_output_tables(data, sales_line, envelope_matrix_df, df_channel, df_sales_line, df_master, df_brand, df_time, conn):
+        """
+        Build output DataFrames for Snowflake using the logic from utils.output_mapping.
+        Args:
+            data: Input data (dict or DataFrame)
+            sales_line: Sales line name
+            envelope_matrix_df: Envelope matrix DataFrame
+            df_channel, df_sales_line, df_master, df_brand, df_time: DataFrames from Snowflake
+            conn: Snowflake connection
+        Returns:
+            Tuple of (df_business_constraints, df_brand_specific, df_hcp_constraints)
+        """
+        return create_business_constraints_file(
+            data=data,
+            sales_line=sales_line,
+            envelope_matrix_df=envelope_matrix_df,
+            df_channel=df_channel,
+            df_sales_line=df_sales_line,
+            df_master=df_master,
+            df_brand=df_brand,
+            df_time=df_time,
+            conn=conn,
+        ) 
